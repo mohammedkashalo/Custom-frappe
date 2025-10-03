@@ -199,6 +199,10 @@ frappe.provide("frappe.views");
 								columns: columns,
 							});
 							frappe.dom.unfreeze();
+							const new_column = card.to_colname || card.colname;
+							if (context.state.doctype === "Opportunity" && new_column === "On Hold") {
+								show_on_hold_reason_dialog(card.name);
+							}
 						},
 					})
 					.fail(function () {
@@ -208,6 +212,7 @@ frappe.provide("frappe.views");
 							columns: _columns,
 						});
 						frappe.dom.unfreeze();
+
 					});
 			},
 			update_order: function (context) {
@@ -484,14 +489,14 @@ frappe.provide("frappe.views");
 			}, "");
 			var $dropdown = $(
 				"<div class='dropdown pull-right'>" +
-					"<a class='text-muted dropdown-toggle' data-toggle='dropdown'>" +
-					"<span class='dropdown-text'>" +
-					__("Archived Columns") +
-					"</span><i class='caret'></i></a>" +
-					"<ul class='dropdown-menu'>" +
-					options +
-					"</ul>" +
-					"</div>"
+				"<a class='text-muted dropdown-toggle' data-toggle='dropdown'>" +
+				"<span class='dropdown-text'>" +
+				__("Archived Columns") +
+				"</span><i class='caret'></i></a>" +
+				"<ul class='dropdown-menu'>" +
+				options +
+				"</ul>" +
+				"</div>"
 			);
 
 			list_row_right.html($dropdown);
@@ -606,7 +611,7 @@ frappe.provide("frappe.views");
 					};
 					store.dispatch("update_order_for_single_card", args);
 				},
-				onAdd: function () {},
+				onAdd: function () { },
 			});
 		}
 
@@ -976,4 +981,48 @@ frappe.provide("frappe.views");
 			callback(indicators);
 		});
 	}
+	function show_on_hold_reason_dialog(opportunity_name) {
+	// First get the field options from Opportunity doctype
+	frappe.model.with_doctype('Opportunity', function() {
+		const on_hold_reason_field = frappe.meta.get_docfield('Opportunity', 'custom_on_hold_reason');
+		const options = on_hold_reason_field ? on_hold_reason_field.options : '';
+		
+		let dialog = new frappe.ui.Dialog({
+			title: __('Set On Hold Reason'),
+			fields: [
+				{
+					fieldname: 'custom_on_hold_reason',
+					fieldtype: 'Select',
+					label: __('On Hold Reason'),
+					reqd: 1,
+					options: options
+				}
+			],
+			primary_action_label: __('Set Reason'),
+			primary_action: function(values) {
+				frappe.call({
+					method: 'frappe.client.set_value',
+					args: {
+						doctype: 'Opportunity',
+						name: opportunity_name,
+						fieldname: 'custom_on_hold_reason',
+						value: values.custom_on_hold_reason
+					},
+					callback: function(r) {
+						if (!r.exc) {
+							frappe.show_alert({
+								message: __('On Hold reason set to {0}', [values.custom_on_hold_reason]),
+								indicator: 'green'
+							});
+							dialog.hide();
+						}
+					}
+				});
+			}
+		});
+		
+		dialog.show();
+	});
+}
+
 })();
